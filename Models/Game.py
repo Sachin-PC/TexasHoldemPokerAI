@@ -136,8 +136,8 @@ class Game:
         print("Community cards = ",self.community_cards)
         card_combinations = []
         total_cards = 5
-        player1_bestrank = 20
-        player2_bestrank = 20
+        player1_bestrank = 0
+        player2_bestrank = 0
         player1_card_combinations = []
         player2_card_combinations = []
         # getPlayerRanking(player1)
@@ -174,12 +174,12 @@ class Game:
                 p2_card_comb = player2_card_combination + community_card_combination
                 print(p1_card_comb)
                 print(p2_card_comb)
-                player1_rank = self.checkPokerHandRanking(p2_card_comb)
-                if player1_rank < player1_bestrank:
+                player1_rank = self.checkPokerHandRanking(p1_card_comb)
+                if player1_rank > player1_bestrank:
                     player1_bestrank = player1_rank
 
                 player2_rank = self.checkPokerHandRanking(p2_card_comb)
-                if player2_rank < player2_bestrank:
+                if player2_rank > player2_bestrank:
                     player2_bestrank = player2_rank
 
                 j = j+1
@@ -199,6 +199,7 @@ class Game:
 
     def checkPokerHandRanking(self, cards_as_set):
 
+        rank_factor = 100
         cards = list(cards_as_set)
         poker_hand = None
         same_suit = True
@@ -215,7 +216,8 @@ class Game:
 
         cards.sort(key=lambda x: x.rank_value)
         for card in cards:
-            print(card.rank, " of ", card.suit_name, " val = ", card.rank_value)
+            # print(card.rank, " of ", card.suit_name, " val = ", card.rank_value)
+            print("yes",card)
         prev_rank_value = None
         hand_suit = None
         for card in cards:
@@ -227,7 +229,7 @@ class Game:
             else:
                 if card.suit_name != hand_suit:
                     same_suit = False
-                if card.rank == prev_rank_value:
+                if card.rank_value == prev_rank_value:
                     same_rank_card_count += 1
                 else:
                     if same_rank_card_count == 2:
@@ -240,7 +242,7 @@ class Game:
                         four_of_a_kind = 1
                         four_of_a_kind_highest_rank = prev_rank_value
 
-                    prev_rank = card.rank_value
+                    prev_rank_value = card.rank_value
                     same_rank_card_count = 1
 
                     if card.rank_value == prev_rank_value + 1:
@@ -248,39 +250,45 @@ class Game:
                     else:
                         continuous_card_count = 1
 
+        print("continious card count = ",continuous_card_count)
+        print("pairs = ",pair)
+        print("three_of_a_kind",three_of_a_kind)
+        print("four of a kind = ",four_of_a_kind)
+
         if continuous_card_count == self.hand_max_cards:
             if same_suit:
                 if prev_rank_value == 14:
                     poker_hand = "Royal Flush"
-                    poker_hand_rank = 1
+                    poker_hand_rank = rank_factor*10
                 else:
                     poker_hand = "Straight Flush"
-                    poker_hand_rank = 2
+                    poker_hand_rank = rank_factor*9 + prev_rank_value
             else:
                 poker_hand = "Straight"
-                poker_hand_rank = 6
+                poker_hand_rank = rank_factor*5 + prev_rank_value
         elif four_of_a_kind == 1:
             poker_hand = "Four of A Kind"
-            poker_hand_rank = 3
+            poker_hand_rank = rank_factor*8 + four_of_a_kind_highest_rank
         elif three_of_a_kind == 1:
             if pair == 1:
                 poker_hand = "Full house"
-                poker_hand_rank = 4
+                poker_hand_rank = rank_factor*7 + three_of_a_kind_highest_rank*5 + pair_highest_rank
             else:
                 poker_hand = "Three of a Kind"
-                poker_hand_rank = 7
+                poker_hand_rank = rank_factor*4 + three_of_a_kind_highest_rank
         elif same_suit:
             poker_hand = "Flush"
-            poker_hand_rank = 5
+            poker_hand_rank = rank_factor*6 + prev_rank_value
         elif pair == 2:
             poker_hand = "Two Pair"
-            poker_hand_rank = 8
+            poker_hand_rank = rank_factor*3 + pair_highest_rank
         elif pair == 1:
             poker_hand = "Pair"
-            poker_hand_rank = 9
+            poker_hand_rank = rank_factor*2 + pair_highest_rank
         else:
             poker_hand = "High Card"
-            poker_hand_rank = 10
+            poker_hand_rank = rank_factor
+        print("Its a ", poker_hand," poker hand rank = ",poker_hand_rank)
 
         return poker_hand_rank
 
