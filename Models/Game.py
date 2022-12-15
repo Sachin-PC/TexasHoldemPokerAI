@@ -26,15 +26,15 @@ class Game:
     # def card_details(self):
     #     print("card details = ", self.cards, "  check static = ", self.isItStatic)
 
-    def perform_regret_iterations(self):
-        for i in range(10000000):
+    def perform_regret_iterations(self,no_of_iterations):
+        for i in range(no_of_iterations):
             print("Iteration ",i)
             self.deck = None
             self.community_cards = []
             for player in self.list_of_players:
                 player.cards = []
                 player.win = False
-            self.play()
+            self.play(0)
 
         file_operations = FileOperations()
         file_operations.save_regret_values_into_pickle_file(self.unique_card_abstractions)
@@ -47,11 +47,13 @@ class Game:
 
         for player in self.list_of_players:
             player.cards = []
-            player.chips = 100000
+            player.chips = 1000000
             player.bet = 0
         file_operations = FileOperations()
         self.card_abstractions_from_file = file_operations.get_regret_values_from_pickle_file()
+        self.no_of_games = 0
         for i in range(no_of_games):
+            self.no_of_games = i
             self.deck = None
             self.community_cards = []
             for player in self.list_of_players:
@@ -59,12 +61,18 @@ class Game:
                 player.win = False
             self.play(1)
         p_i=1
-        print("After ", no_of_games, "\n")
+        print("After ", no_of_games, " Games:")
         for player in self.list_of_players:
             print("Chips with player ",p_i," = ",player.chips)
             p_i +=1
+
+        if self.list_of_players[0].chips > self.list_of_players[1].chips:
+            return 1
+        else:
+            return 0
     def play(self,play_type):
 
+        self.total_pot = 0
         self.deck = StandardDeck()
         self.deck.shuffle_cards()
         no_rounds_completed = 0
@@ -89,7 +97,7 @@ class Game:
         # print("player 2 cards = ", cur_game_player2.get_cards())
         game_finished = self.play_round(cur_game_player1, cur_game_player2,play_type,1)
         if game_finished:
-            print("Game over")
+            # print("Game over")
             return
 
         # round 2
@@ -98,7 +106,7 @@ class Game:
         # print("Community cards are:\n",self.community_cards)
         game_finished = self.play_round(cur_game_player1, cur_game_player2,play_type,2)
         if game_finished:
-            print("Game over")
+            # print("Game over")
             return
 
         # round 3
@@ -107,7 +115,7 @@ class Game:
         # print("Community cards are:\n", self.community_cards)
         game_finished = self.play_round(cur_game_player1, cur_game_player2,play_type,3)
         if game_finished:
-            print("Game over")
+            # print("Game over")
             return
 
         # round 4
@@ -115,7 +123,7 @@ class Game:
         self.deal_community_cards(1)
         game_finished = self.play_round(cur_game_player1, cur_game_player2,play_type,4)
         if game_finished:
-            print("Game over")
+            # print("Game over")
             return
 
         # showdown
@@ -145,6 +153,7 @@ class Game:
             total_bet_raised = [40, 0]
             return total_bet_raised
         if play_type == 1:
+            raise_values = [10,20,30,40,50]
             total_bet_raised = []
             bet_raised = 0
             # player1_bet_option = int(input("Enter Your Bet Option!\n1.Bet 2.Fold 3.Check\n"))
@@ -157,14 +166,22 @@ class Game:
             #     return total_bet_raised
             if round_no > 1:
                 player_card_combinations_with_community_cards = self.get_card_combinations(player1)
-                print("player_card_combinations")
+                # print("player_card_combinations")
                 best_reward = self.get_best_regret_reward_comb(player_card_combinations_with_community_cards)
                 if best_reward < 0:
                     total_bet_raised.append(bet_raised)
                     total_bet_raised.append(1)
                     return total_bet_raised
                 else:
-                    player1_bet = 20
+                    # player1_bet = 20
+                    if 0 < best_reward <= 20000:
+                        player1_bet = raise_values[1]
+                    elif 20000 < best_reward <= 40000:
+                        player1_bet = raise_values[2]
+                    elif 40000 < best_reward <= 80000:
+                        player1_bet = raise_values[3]
+                    else:
+                        player1_bet = raise_values[4]
                     bet_raised = player1_bet
                     player1.increase_bet(player1_bet)
             else:
@@ -176,11 +193,13 @@ class Game:
             # 1 = Call, 2= Raise, 3=   Fold
             # player2_bet_option = int(input("Enter Your Bet Option! 1.Bet 2.Fold 3.Check 4.Call 5.Raise\n"))
             if player2_bet_option == 1:
-                player2_bet = 20
+                player2_bet = player1_bet
                 bet_raised += player2_bet
                 player2.increase_bet(player2_bet)
             elif player2_bet_option == 2:
-                player2_bet = 10
+                # player2_bet = 10
+                player2_raise_option = random.randint(0, 4)
+                player2_bet = raise_values[player2_raise_option]
                 player2.increase_bet(bet_raised + player2_bet)
                 bet_raised += bet_raised + player2_bet
             elif player2_bet_option == 3:
@@ -303,7 +322,7 @@ class Game:
             # print("Player 2 is the Winner")
             player2.increase_chips(self.total_pot)
             player2.set_win()
-        regret_value = player1_rank - player2_rank
+        regret_value = player1_best_rank - player2_best_rank
         card_val_list = [0, 0, 0, 0, 0]
         q_index = 0
         for p1_card_combination in payer1_card_combinations_with_community_cards:
@@ -491,5 +510,15 @@ c_player1 = Player("Agent")
 c_player2 = Player("Human")
 
 game = Game([c_player1, c_player2])
-# game.perform_regret_iterations()
-game.play_texas_holdem(10000)
+# game.perform_regret_iterations(1000000)
+no_of_games = random.randint(500, 10000)
+is_p1_win = game.play_texas_holdem(no_of_games)
+no_of_wins = 0
+for j in range(100):
+    no_of_games = random.randint(100, 500)
+    is_p1_cash_higher = game.play_texas_holdem(no_of_games)
+    print("is_p1_cash_higher = ",is_p1_cash_higher)
+    if is_p1_cash_higher:
+        no_of_wins += 1
+
+print("No of times p1 cash is higher = ",no_of_wins)
