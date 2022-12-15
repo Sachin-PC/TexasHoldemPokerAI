@@ -1,5 +1,6 @@
 from Models.FileOperations import FileOperations
 from Models.Player import Player
+import random
 # from Models.StandardDeck import StandardDeck
 import itertools
 
@@ -20,6 +21,7 @@ class Game:
         self.identical_card_abstraction = []
         self.unique_card_abstractions = {}
         self.get_unique_cards_abstraction()
+        self.card_abstractions_from_file = {}
 
     # def card_details(self):
     #     print("card details = ", self.cards, "  check static = ", self.isItStatic)
@@ -41,7 +43,27 @@ class Game:
         # print(regretvals)
         # print("len of regret vals = ", len(regretvals))
 
-    def play(self):
+    def play_texas_holdem(self,no_of_games):
+
+        for player in self.list_of_players:
+            player.cards = []
+            player.chips = 100000
+            player.bet = 0
+        file_operations = FileOperations()
+        self.card_abstractions_from_file = file_operations.get_regret_values_from_pickle_file()
+        for i in range(no_of_games):
+            self.deck = None
+            self.community_cards = []
+            for player in self.list_of_players:
+                player.cards = []
+                player.win = False
+            self.play(1)
+        p_i=1
+        print("After ", no_of_games, "\n")
+        for player in self.list_of_players:
+            print("Chips with player ",p_i," = ",player.chips)
+            p_i +=1
+    def play(self,play_type):
 
         self.deck = StandardDeck()
         self.deck.shuffle_cards()
@@ -65,7 +87,7 @@ class Game:
         # print("Cards dealt for players")
         # print("player 1 cards = ", cur_game_player1.get_cards())
         # print("player 2 cards = ", cur_game_player2.get_cards())
-        game_finished = self.play_round(cur_game_player1, cur_game_player2)
+        game_finished = self.play_round(cur_game_player1, cur_game_player2,play_type,1)
         if game_finished:
             print("Game over")
             return
@@ -74,7 +96,7 @@ class Game:
         # print("Round 2")
         self.deal_community_cards(3)
         # print("Community cards are:\n",self.community_cards)
-        game_finished = self.play_round(cur_game_player1, cur_game_player2)
+        game_finished = self.play_round(cur_game_player1, cur_game_player2,play_type,2)
         if game_finished:
             print("Game over")
             return
@@ -83,7 +105,7 @@ class Game:
         # print("Round 3")
         self.deal_community_cards(1)
         # print("Community cards are:\n", self.community_cards)
-        game_finished = self.play_round(cur_game_player1, cur_game_player2)
+        game_finished = self.play_round(cur_game_player1, cur_game_player2,play_type,3)
         if game_finished:
             print("Game over")
             return
@@ -91,7 +113,7 @@ class Game:
         # round 4
         # print("Round 4")
         self.deal_community_cards(1)
-        game_finished = self.play_round(cur_game_player1, cur_game_player2)
+        game_finished = self.play_round(cur_game_player1, cur_game_player2,play_type,4)
         if game_finished:
             print("Game over")
             return
@@ -100,8 +122,8 @@ class Game:
         # print("Showdown")
         self.showdown(cur_game_player1, cur_game_player2)
 
-    def play_round(self, cur_game_player1, cur_game_player2):
-        bet_raised = self.raise_bets(cur_game_player1, cur_game_player2)
+    def play_round(self, cur_game_player1, cur_game_player2, play_type, round_no):
+        bet_raised = self.raise_bets(cur_game_player1, cur_game_player2,play_type,round_no)
         # print("Bet Raised in 1st round = ", bet_raised)
         # print("Player 1 total bet = ", player1.get_bet_amount())
         # print("Player 2 total bet = ", player2.get_bet_amount())
@@ -117,10 +139,59 @@ class Game:
         # print("Total pot after this round = ", self.total_pot)
         return False
 
-    def raise_bets(self, player1, player2):
+    def raise_bets(self, player1, player2,play_type,round_no):
 
-        total_bet_raised = [50, 0]
-        return total_bet_raised
+        if play_type == 0:
+            total_bet_raised = [40, 0]
+            return total_bet_raised
+        if play_type == 1:
+            total_bet_raised = []
+            bet_raised = 0
+            # player1_bet_option = int(input("Enter Your Bet Option!\n1.Bet 2.Fold 3.Check\n"))
+            # if player1_bet_option == 1:
+            #     player1_bet = int(input("Enter Your Bet\n"))
+            #     bet_raised = player1_bet
+            # elif player1_bet_option == 2:
+            #     total_bet_raised.append(0)
+            #     total_bet_raised.append(2)
+            #     return total_bet_raised
+            if round_no > 1:
+                player_card_combinations_with_community_cards = self.get_card_combinations(player1)
+                print("player_card_combinations")
+                best_reward = self.get_best_regret_reward_comb(player_card_combinations_with_community_cards)
+                if best_reward < 0:
+                    total_bet_raised.append(bet_raised)
+                    total_bet_raised.append(1)
+                    return total_bet_raised
+                else:
+                    player1_bet = 20
+                    bet_raised = player1_bet
+                    player1.increase_bet(player1_bet)
+            else:
+                player1_bet = 20
+                bet_raised = player1_bet
+                player1.increase_bet(player1_bet)
+
+            player2_bet_option = random.randint(1, 3)
+            # 1 = Call, 2= Raise, 3=   Fold
+            # player2_bet_option = int(input("Enter Your Bet Option! 1.Bet 2.Fold 3.Check 4.Call 5.Raise\n"))
+            if player2_bet_option == 1:
+                player2_bet = 20
+                bet_raised += player2_bet
+                player2.increase_bet(player2_bet)
+            elif player2_bet_option == 2:
+                player2_bet = 10
+                player2.increase_bet(bet_raised + player2_bet)
+                bet_raised += bet_raised + player2_bet
+            elif player2_bet_option == 3:
+                total_bet_raised.append(bet_raised)
+                total_bet_raised.append(1)
+                return total_bet_raised
+            # player2.increase_bet(player2_bet)
+            total_bet_raised.append(bet_raised)
+            total_bet_raised.append(0)
+            return total_bet_raised
+
         # total_bet_raised = []
         # bet_raised = 0
         # player1_bet_option = int(input("Enter Your Bet Option!\n1.Bet 2.Fold 3.Check\n"))
@@ -249,6 +320,40 @@ class Game:
             # print("self.unique_card_abstractions[",card_val_tuple,"] = ",self.unique_card_abstractions[card_val_tuple])
             q_index += 1
         # print("q_index = ",q_index)
+
+    def get_card_combinations(self, player):
+        player_card_combinations = []
+        player_card_combinations_with_community_cards = []
+        for no_of_cards in range(3):
+            for player_card_combination in itertools.combinations(player.cards, no_of_cards):
+                player_card_combinations.append(player_card_combination)
+
+        for i in range(4):
+            player_card_combination = player_card_combinations[i]
+            no_of_req_cards = 5 - len(player_card_combination)
+            # print("no of required cards = ", no_of_req_cards)
+
+            for community_card_combination in itertools.combinations(self.community_cards, no_of_req_cards):
+                p_card_comb = player_card_combination + community_card_combination
+                player_card_combinations_with_community_cards.append(p_card_comb)
+
+        return player_card_combinations_with_community_cards
+
+    def get_best_regret_reward_comb(self,player_card_combinations_with_community_cards):
+        card_val_list = [0, 0, 0, 0, 0]
+        best_reward_value = -1
+        for p_card_combination in player_card_combinations_with_community_cards:
+            p_index = 0
+            for card in p_card_combination:
+                card_val_list[p_index] = card.rank_value
+                p_index = p_index + 1
+            card_val_list.sort()
+            card_val_tuple = tuple(card_val_list)
+            cards_reward = self.unique_card_abstractions[card_val_tuple]
+            if cards_reward > best_reward_value:
+                best_reward_value = cards_reward
+        return cards_reward
+
 
     def checkPokerHandRanking(self, cards_as_set):
 
@@ -386,4 +491,5 @@ c_player1 = Player("Agent")
 c_player2 = Player("Human")
 
 game = Game([c_player1, c_player2])
-game.perform_regret_iterations()
+# game.perform_regret_iterations()
+game.play_texas_holdem(10000)
