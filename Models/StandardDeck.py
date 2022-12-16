@@ -27,26 +27,26 @@ class StandardDeck:
         return card
 
 
-deck = StandardDeck()
-deck.shuffle_cards()
-print(deck.cards)
-
-player1 = Player("Human")
-player2 = Player("Human")
-player1.cards.append(deck.deal())
-player1.cards.append(deck.deal())
-player2.cards.append(deck.deal())
-player2.cards.append(deck.deal())
-
-print(player1.cards)
-print(player2.cards)
-
-# game = Game([player1,player2])
+# deck = StandardDeck()
+# deck.shuffle_cards()
+# print(deck.cards)
 #
-# print(game.list_of_players[0].cards)
-# game.showdown(player1,player2)
-
-# player1 = Player("Human");
-# deck.deal(player1)
-# print("YESS")
-# print(print(player1.cards[0].rank, " of ", player1.cards[0].suit_name, " val = ", player1.cards[0].rank_value))
+# player1 = Player("Human")
+# player2 = Player("Human")
+# player1.cards.append(deck.deal())
+# player1.cards.append(deck.deal())
+# player2.cards.append(deck.deal())
+# player2.cards.append(deck.deal())
+#
+# print(player1.cards)
+# print(player2.cards)
+#
+# # game = Game([player1,player2])
+# #
+# # print(game.list_of_players[0].cards)
+# # game.showdown(player1,player2)
+#
+# # player1 = Player("Human");
+# # deck.deal(player1)
+# # print("YESS")
+# # print(print(player1.cards[0].rank, " of ", player1.cards[0].suit_name, " val = ", player1.cards[0].rank_value))

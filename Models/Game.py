@@ -1,4 +1,6 @@
+from Models.FileOperations import FileOperations
 from Models.Player import Player
+import random
 # from Models.StandardDeck import StandardDeck
 import itertools
 
@@ -6,7 +8,6 @@ from Models.StandardDeck import StandardDeck
 
 
 class Game:
-    isItStatic = "xyz"
     hand_max_cards = 5
 
     def __init__(self, list_of_players):
@@ -16,139 +17,254 @@ class Game:
         self.small_blind = 10
         self.big_blind = 20
         self.deck = None
+        self.total_pot = 0
+        self.identical_card_abstraction = []
+        self.unique_card_abstractions = {}
+        self.get_unique_cards_abstraction()
+        self.card_abstractions_from_file = {}
 
-    def cardDetails(self):
-        print("card details = ", self.cards, "  check static = ", self.isItStatic)
+    # def card_details(self):
+    #     print("card details = ", self.cards, "  check static = ", self.isItStatic)
 
-    def play(self):
+    def perform_regret_iterations(self,no_of_iterations):
+        for i in range(no_of_iterations):
+            print("Iteration ",i)
+            self.deck = None
+            self.community_cards = []
+            for player in self.list_of_players:
+                player.cards = []
+                player.win = False
+            self.play(0)
+
+        file_operations = FileOperations()
+        file_operations.save_regret_values_into_pickle_file(self.unique_card_abstractions)
+        file_operations.save_regret_values_into_csv_file(self.unique_card_abstractions)
+        regretvals = file_operations.get_regret_values_from_pickle_file()
+        # print(regretvals)
+        # print("len of regret vals = ", len(regretvals))
+
+    def play_texas_holdem(self,no_of_games):
+
+        for player in self.list_of_players:
+            player.cards = []
+            player.chips = 1000000
+            player.bet = 0
+        file_operations = FileOperations()
+        self.card_abstractions_from_file = file_operations.get_regret_values_from_pickle_file()
+        self.no_of_games = 0
+        for i in range(no_of_games):
+            print("Game ",i)
+            self.no_of_games = i
+            self.deck = None
+            self.community_cards = []
+            for player in self.list_of_players:
+                player.cards = []
+                player.win = False
+            self.play(1)
+        p_i=1
+        print("After ", no_of_games, " Games:")
+        for player in self.list_of_players:
+            print("Chips with player ",p_i," = ",player.chips)
+            p_i +=1
+
+        if self.list_of_players[0].chips > self.list_of_players[1].chips:
+            return 1
+        else:
+            return 0
+    def play(self,play_type):
+
+        self.total_pot = 0
         self.deck = StandardDeck()
         self.deck.shuffle_cards()
         no_rounds_completed = 0
-        total_pot = 0
-        if self.no_of_games%2 == 0:
-            player1 = self.list_of_players.get(0);
-            player2 = self.list_of_players.get(1);
-        else:
-            player1 = self.list_of_players.get(1);
-            player2 = self.list_of_players.get(0);
-        player1.increase_bet(self.small_blind)
-        player2.increase_bet(self.big_blind)
-        # total_pot += self.small_blind + self.big_blind;
+        # total_pot = 0
+        # if self.no_of_games % 2 == 0:
+        #     cur_game_player1 = self.list_of_players[0];
+        #     cur_game_player2 = self.list_of_players[1];
+        # else:
+        #     cur_game_player1 = self.list_of_players.get[1];
+        #     cur_game_player2 = self.list_of_players.get[1];
+        cur_game_player1 = self.list_of_players[0];
+        cur_game_player2 = self.list_of_players[1];
+        cur_game_player1.increase_bet(self.small_blind)
+        cur_game_player2.increase_bet(self.big_blind)
+        self.total_pot += self.small_blind + self.big_blind;
 
         # round 1
-        self.dealcards(player1,player2)
-        bet_raised = self.raisebets(player1, player2)
-        if bet_raised[1] == 0:
-            total_pot += self.small_blind + self.big_blind + bet_raised[0]
-        else:
-            if bet_raised[1] == 1:
-                return player1
-            else:
-                return player2
+        # print("Round 1")
+        self.deal_cards(cur_game_player1, cur_game_player2)
+        # print("Cards dealt for players")
+        # print("player 1 cards = ", cur_game_player1.get_cards())
+        # print("player 2 cards = ", cur_game_player2.get_cards())
+        game_finished = self.play_round(cur_game_player1, cur_game_player2,play_type,1)
+        if game_finished:
+            # print("Game over")
+            return
 
         # round 2
-        self.dealCommunityCards(3)
-        bet_raised = self.raisebets(player1, player2)
-        if bet_raised[1] == 0:
-            total_pot += bet_raised[0]
-        else:
-            if bet_raised[1] == 1:
-                return player1
-            else:
-                return player2
+        # print("Round 2")
+        self.deal_community_cards(3)
+        # print("Community cards are:\n",self.community_cards)
+        game_finished = self.play_round(cur_game_player1, cur_game_player2,play_type,2)
+        if game_finished:
+            # print("Game over")
+            return
 
         # round 3
-        self.dealCommunityCards(1)
-        bet_raised = self.raisebets(player1, player2)
-        if bet_raised[1] == 0:
-            total_pot += bet_raised[0]
-        else:
-            if bet_raised[1] == 1:
-                return player1
-            else:
-                return player2
-
-        #round 4
-        self.dealCommunityCards(1)
-        bet_raised = self.raisebets(player1, player2)
-        if bet_raised[1] == 0:
-            total_pot += bet_raised[0]
-        else:
-            if bet_raised[1] == 1:
-                return player1
-            else:
-                return player2
-
-        #showdown
-        self.showdown(player1,player2)
-
-
-    def raisebets(self,player1, player2):
-
-        total_bet_raised = []
-        bet_raised = 0
-        player1_bet_option = input("Enter Your Bet Option! 1.Bet 2.Fold 3.Check")
-        player1_bet = 0
-        if player1_bet_option == 1:
-            player1_bet = input("Enter Your Bet")
-            bet_raised = player1_bet
-        elif player1_bet_option == 2:
-            total_bet_raised.append(0)
-            total_bet_raised.append(2)
+        # print("Round 3")
+        self.deal_community_cards(1)
+        # print("Community cards are:\n", self.community_cards)
+        game_finished = self.play_round(cur_game_player1, cur_game_player2,play_type,3)
+        if game_finished:
+            # print("Game over")
             return
 
-        player2_bet_option = input("Enter Your Bet Option! 1.Bet 2.Fold 3.Check 4.Call 5.Raise")
-        player1_bet = 0
-        if player1_bet_option == 1:
-            player1_bet = input("Enter Your Bet")
-            bet_raised += player1_bet
-        elif player2_bet_option == 2:
+        # round 4
+        # print("Round 4")
+        self.deal_community_cards(1)
+        game_finished = self.play_round(cur_game_player1, cur_game_player2,play_type,4)
+        if game_finished:
+            # print("Game over")
+            return
+
+        # showdown
+        # print("Showdown")
+        self.showdown(cur_game_player1, cur_game_player2)
+
+    def play_round(self, cur_game_player1, cur_game_player2, play_type, round_no):
+        bet_raised = self.raise_bets(cur_game_player1, cur_game_player2,play_type,round_no)
+        # print("Bet Raised in 1st round = ", bet_raised)
+        # print("Player 1 total bet = ", player1.get_bet_amount())
+        # print("Player 2 total bet = ", player2.get_bet_amount())
+        if bet_raised[1] == 0:
+            self.total_pot += bet_raised[0]
+        else:
+            if bet_raised[1] == 1:
+                cur_game_player1.increase_chips(self.total_pot + bet_raised[0])
+                return True
+            else:
+                cur_game_player2.increase_chips(self.total_pot + bet_raised[0])
+                return True
+        # print("Total pot after this round = ", self.total_pot)
+        return False
+
+    def raise_bets(self, player1, player2,play_type,round_no):
+
+        if play_type == 0:
+            total_bet_raised = [40, 0]
+            return total_bet_raised
+        if play_type == 1:
+            raise_values = [10,20,30,40,50]
+            total_bet_raised = []
+            bet_raised = 0
+            # player1_bet_option = int(input("Enter Your Bet Option!\n1.Bet 2.Fold 3.Check\n"))
+            # if player1_bet_option == 1:
+            #     player1_bet = int(input("Enter Your Bet\n"))
+            #     bet_raised = player1_bet
+            # elif player1_bet_option == 2:
+            #     total_bet_raised.append(0)
+            #     total_bet_raised.append(2)
+            #     return total_bet_raised
+            if round_no > 1:
+                player_card_combinations_with_community_cards = self.get_card_combinations(player1)
+                # print("player_card_combinations")
+                best_reward = self.get_best_regret_reward_comb(player_card_combinations_with_community_cards)
+                if best_reward < 0:
+                    total_bet_raised.append(bet_raised)
+                    total_bet_raised.append(1)
+                    return total_bet_raised
+                else:
+                    # player1_bet = 20
+                    if 0 < best_reward <= 20000:
+                        player1_bet = raise_values[1]
+                    elif 20000 < best_reward <= 40000:
+                        player1_bet = raise_values[2]
+                    elif 40000 < best_reward <= 80000:
+                        player1_bet = raise_values[3]
+                    else:
+                        player1_bet = raise_values[4]
+                    bet_raised = player1_bet
+                    player1.increase_bet(player1_bet)
+            else:
+                player1_bet = 20
+                bet_raised = player1_bet
+                player1.increase_bet(player1_bet)
+
+            player2_bet_option = random.randint(1, 2)
+            # 1 = Call, 2= Raise, 3=   Fold
+            # player2_bet_option = int(input("Enter Your Bet Option! 1.Bet 2.Fold 3.Check 4.Call 5.Raise\n"))
+            if player2_bet_option == 1:
+                player2_bet = player1_bet
+                bet_raised += player2_bet
+                player2.increase_bet(player2_bet)
+            elif player2_bet_option == 2:
+                # player2_bet = 10
+                player2_raise_option = random.randint(0, 4)
+                player2_bet = raise_values[player2_raise_option]
+                player2.increase_bet(bet_raised + player2_bet)
+                bet_raised += bet_raised + player2_bet
+            elif player2_bet_option == 3:
+                total_bet_raised.append(bet_raised)
+                total_bet_raised.append(1)
+                return total_bet_raised
+            # player2.increase_bet(player2_bet)
             total_bet_raised.append(bet_raised)
-            total_bet_raised.append(1)
-            return
-        elif player2_bet_option == 4:
-            bet_raised += bet_raised
-        elif player2_bet_option == 5:
-            player1_bet = input("Enter Your Raise Amount")
-            bet_raised += bet_raised + player1_bet
+            total_bet_raised.append(0)
+            return total_bet_raised
 
-        total_bet_raised.append(bet_raised)
-        total_bet_raised.append(0)
+        # total_bet_raised = []
+        # bet_raised = 0
+        # player1_bet_option = int(input("Enter Your Bet Option!\n1.Bet 2.Fold 3.Check\n"))
+        # if player1_bet_option == 1:
+        #     player1_bet = int(input("Enter Your Bet\n"))
+        #     bet_raised = player1_bet
+        # elif player1_bet_option == 2:
+        #     total_bet_raised.append(0)
+        #     total_bet_raised.append(2)
+        #     return total_bet_raised
+        # player1.increase_bet(player1_bet)
+        #
+        # player2_bet_option = int(input("Enter Your Bet Option! 1.Bet 2.Fold 3.Check 4.Call 5.Raise\n"))
+        # if player2_bet_option == 1:
+        #     player2_bet = int(input("Enter Your Bet\n"))
+        #     bet_raised += player2_bet
+        # elif player2_bet_option == 2:
+        #     total_bet_raised.append(bet_raised)
+        #     total_bet_raised.append(1)
+        #     return total_bet_raised
+        # elif player2_bet_option == 4:
+        #     player2_bet = player1_bet
+        #     bet_raised += bet_raised
+        # elif player2_bet_option == 5:
+        #     player2_bet = int(input("Enter Your Raise Amount\n"))
+        #     bet_raised += bet_raised + player2_bet
+        # player2.increase_bet(player2_bet)
+        # total_bet_raised.append(bet_raised)
+        # total_bet_raised.append(0)
+        # return total_bet_raised
 
-    def dealCommunityCards(self,no_of_cards):
+    def deal_community_cards(self, no_of_cards):
         for i in range(no_of_cards):
             self.community_cards.append(self.deck.deal())
 
-    def dealcards(self,player1,player2):
-        player1.cards.append(self.deck.deal())
-        player2.cards.append(self.deck.deal())
-        player1.cards.append(self.deck.deal())
-        player2.cards.append(self.deck.deal())
+    def deal_cards(self, player1, player2):
+        player1.add_card(self.deck.deal())
+        player2.add_card(self.deck.deal())
+        player1.add_card(self.deck.deal())
+        player2.add_card(self.deck.deal())
 
-    def showdown(self,player1,player2):
-        self.deck = StandardDeck()
-        self.deck.shuffle_cards()
-        self.community_cards.append(self.deck.deal())
-        self.community_cards.append(self.deck.deal())
-        self.community_cards.append(self.deck.deal())
-        self.community_cards.append(self.deck.deal())
-        self.community_cards.append(self.deck.deal())
-        print("Community cards = ",self.community_cards)
+    def showdown(self, player1, player2):
+        # print("Community cards = ", self.community_cards)
         card_combinations = []
         total_cards = 5
-        player1_bestrank = 0
-        player2_bestrank = 0
+        player1_best_rank = 0
+        player2_best_rank = 0
         player1_card_combinations = []
         player2_card_combinations = []
-        # getPlayerRanking(player1)
-        # getPLayerRanking(player2)
-        # for no_of_cards in range(2):
-        #     for player_card_combination in itertools.combinations(player1.cards, no_of_cards):
-        #         for community_card_combination in itertools.combinations(self.community_cards, total_cards-no_of_cards):
-        #             card_combinations = player_card_combination + community_card_combination
-        #             player1_rank = self.checkPokerHandRanking(card_combinations)
-        #             if player1_rank < player1_bestrank:
-        #                 player1_bestrank = player1_rank
+        payer1_card_combinations_with_community_cards = []
+        player1_rank_list = []
+        player2_rank_list = []
+        j_val = []
 
         for no_of_cards in range(3):
             for player_card_combination in itertools.combinations(player1.cards, no_of_cards):
@@ -157,44 +273,106 @@ class Game:
             for player_card_combination in itertools.combinations(player2.cards, no_of_cards):
                 player2_card_combinations.append(player_card_combination)
 
-        print("player1_card_combinations = ",player1_card_combinations)
+        # print("player1_card_combinations = ", player1_card_combinations)
+        # print("player2_card_combinations = ", player1_card_combinations)
 
         j = 0;
         for i in range(4):
             player1_card_combination = player1_card_combinations[i]
             player2_card_combination = player2_card_combinations[i]
-            print("player1_card_combination = ",player1_card_combination)
-            print("player2_card_combination = ", player2_card_combination)
+            # print("player1_card_combination = ", player1_card_combination)
+            # print("player2_card_combination = ", player2_card_combination)
             no_of_req_cards = total_cards - len(player1_card_combination)
-            print("no of required cards = ",no_of_req_cards)
+            # print("no of required cards = ", no_of_req_cards)
 
             for community_card_combination in itertools.combinations(self.community_cards, no_of_req_cards):
-                print("community card combinations = ",community_card_combination)
+                # print("community card combinations = ", community_card_combination)
                 p1_card_comb = player1_card_combination + community_card_combination
                 p2_card_comb = player2_card_combination + community_card_combination
-                print(p1_card_comb)
-                print(p2_card_comb)
+                # print(p1_card_comb)
+                # print(p2_card_comb)
+                payer1_card_combinations_with_community_cards.append(p1_card_comb)
                 player1_rank = self.checkPokerHandRanking(p1_card_comb)
-                if player1_rank > player1_bestrank:
-                    player1_bestrank = player1_rank
+                player1_rank_list.append(player1_rank)
+                if player1_rank > player1_best_rank:
+                    player1_best_rank = player1_rank
 
                 player2_rank = self.checkPokerHandRanking(p2_card_comb)
-                if player2_rank > player2_bestrank:
-                    player2_bestrank = player2_rank
+                player2_rank_list.append(player2_rank)
+                if player2_rank > player2_best_rank:
+                    player2_best_rank = player2_rank
+                j = j + 1
+        # print("j = ", j)
+        # print("List of player 1 ranks  = ",player1_rank_list)
+        # print("List of player 2 ranks  = ", player2_rank_list)
+        # print("player1 rank = ", player1_best_rank)
+        # print("player2 rank = ", player2_best_rank)
+        # print("Player 1 card combinations = ",payer1_card_combinations_with_community_cards)
 
-                j = j+1
+        if player1_best_rank == player2_best_rank:
+            # print("Its a draw")
+            player1.increase_chips(self.total_pot / 2)
+            player1.set_win()
+            player2.increase_chips(self.total_pot / 2)
+            player2.set_win()
+        elif player1_rank > player2_rank:
+            # print("Player 1 is the Winner")
+            player1.increase_chips(self.total_pot)
+            player1.set_win()
+        else:
+            # print("Player 2 is the Winner")
+            player2.increase_chips(self.total_pot)
+            player2.set_win()
+        regret_value = player1_best_rank - player2_best_rank
+        card_val_list = [0, 0, 0, 0, 0]
+        q_index = 0
+        for p1_card_combination in payer1_card_combinations_with_community_cards:
+            p_index = 0
+            for card in p1_card_combination:
+                # print("card = ",card)
+                card_val_list[p_index] = card.rank_value
+                p_index = p_index + 1
+            card_val_list.sort()
+            card_val_tuple = tuple(card_val_list)
+            # print("card_val_tuple = ",card_val_tuple)
+            # print("unique abstraction cards = ",self.unique_card_abstractions)
+            self.unique_card_abstractions[card_val_tuple] = self.unique_card_abstractions[card_val_tuple] + regret_value
+            # print("self.unique_card_abstractions[",card_val_tuple,"] = ",self.unique_card_abstractions[card_val_tuple])
+            q_index += 1
+        # print("q_index = ",q_index)
 
-        print("j = ",j)
-        print("player1 rank = ",player1_bestrank)
-        print("player2 rank = ", player2_bestrank)
+    def get_card_combinations(self, player):
+        player_card_combinations = []
+        player_card_combinations_with_community_cards = []
+        for no_of_cards in range(3):
+            for player_card_combination in itertools.combinations(player.cards, no_of_cards):
+                player_card_combinations.append(player_card_combination)
 
-        # for player_card in player1.cards:
-        #     card_combinations.append(player_card)
-        #     combinations = itertools.combinations(self.community_cards,4)
-        #     for community_card in self.community_cards:
+        for i in range(4):
+            player_card_combination = player_card_combinations[i]
+            no_of_req_cards = 5 - len(player_card_combination)
+            # print("no of required cards = ", no_of_req_cards)
 
-        # player1_rank = self.checkPokerHandRanking(player1.ca)
+            for community_card_combination in itertools.combinations(self.community_cards, no_of_req_cards):
+                p_card_comb = player_card_combination + community_card_combination
+                player_card_combinations_with_community_cards.append(p_card_comb)
 
+        return player_card_combinations_with_community_cards
+
+    def get_best_regret_reward_comb(self,player_card_combinations_with_community_cards):
+        card_val_list = [0, 0, 0, 0, 0]
+        best_reward_value = -1
+        for p_card_combination in player_card_combinations_with_community_cards:
+            p_index = 0
+            for card in p_card_combination:
+                card_val_list[p_index] = card.rank_value
+                p_index = p_index + 1
+            card_val_list.sort()
+            card_val_tuple = tuple(card_val_list)
+            cards_reward = self.unique_card_abstractions[card_val_tuple]
+            if cards_reward > best_reward_value:
+                best_reward_value = cards_reward
+        return cards_reward
 
 
     def checkPokerHandRanking(self, cards_as_set):
@@ -215,9 +393,9 @@ class Game:
         continuous_card_count = 1
 
         cards.sort(key=lambda x: x.rank_value)
-        for card in cards:
-            # print(card.rank, " of ", card.suit_name, " val = ", card.rank_value)
-            print("yes",card)
+        # for card in cards:
+        # print(card.rank, " of ", card.suit_name, " val = ", card.rank_value)
+        # print("yes", card)
         prev_rank_value = None
         hand_suit = None
         for card in cards:
@@ -250,81 +428,101 @@ class Game:
                     else:
                         continuous_card_count = 1
 
-        print("continious card count = ",continuous_card_count)
-        print("pairs = ",pair)
-        print("three_of_a_kind",three_of_a_kind)
-        print("four of a kind = ",four_of_a_kind)
+        # print("continious card count = ", continuous_card_count)
+        # print("pairs = ", pair)
+        # print("three_of_a_kind", three_of_a_kind)
+        # print("four of a kind = ", four_of_a_kind)
 
         if continuous_card_count == self.hand_max_cards:
             if same_suit:
                 if prev_rank_value == 14:
                     poker_hand = "Royal Flush"
-                    poker_hand_rank = rank_factor*10
+                    poker_hand_rank = rank_factor * 10
                 else:
                     poker_hand = "Straight Flush"
-                    poker_hand_rank = rank_factor*9 + prev_rank_value
+                    poker_hand_rank = rank_factor * 9 + prev_rank_value
             else:
                 poker_hand = "Straight"
-                poker_hand_rank = rank_factor*5 + prev_rank_value
+                poker_hand_rank = rank_factor * 5 + prev_rank_value
         elif four_of_a_kind == 1:
             poker_hand = "Four of A Kind"
-            poker_hand_rank = rank_factor*8 + four_of_a_kind_highest_rank
+            poker_hand_rank = rank_factor * 8 + four_of_a_kind_highest_rank
         elif three_of_a_kind == 1:
             if pair == 1:
                 poker_hand = "Full house"
-                poker_hand_rank = rank_factor*7 + three_of_a_kind_highest_rank*5 + pair_highest_rank
+                poker_hand_rank = rank_factor * 7 + three_of_a_kind_highest_rank * 5 + pair_highest_rank
             else:
                 poker_hand = "Three of a Kind"
-                poker_hand_rank = rank_factor*4 + three_of_a_kind_highest_rank
+                poker_hand_rank = rank_factor * 4 + three_of_a_kind_highest_rank
         elif same_suit:
             poker_hand = "Flush"
-            poker_hand_rank = rank_factor*6 + prev_rank_value
+            poker_hand_rank = rank_factor * 6 + prev_rank_value
         elif pair == 2:
             poker_hand = "Two Pair"
-            poker_hand_rank = rank_factor*3 + pair_highest_rank
+            poker_hand_rank = rank_factor * 3 + pair_highest_rank
         elif pair == 1:
             poker_hand = "Pair"
-            poker_hand_rank = rank_factor*2 + pair_highest_rank
+            poker_hand_rank = rank_factor * 2 + pair_highest_rank
         else:
             poker_hand = "High Card"
             poker_hand_rank = rank_factor
-        print("Its a ", poker_hand," poker hand rank = ",poker_hand_rank)
+        # print("Its a ", poker_hand, " poker hand rank = ", poker_hand_rank)
 
         return poker_hand_rank
 
+    def get_unique_cards_abstraction(self):
 
-# deck = StandardDeck()
-# deck.shuffle_cards()
-# # cards = deck.get_cards()
-# game1 = Game("testCards", "2players");
-# game1.checkPokerHandRanking(deck.cards)
+        cards_count = []
+        for p in range(15):
+            cards_count.append(0)
+            # cards_count[p] = 0
+        for i in range(2, 15):
+            cards_count[i] += 1
+            for j in range(i, 15):
+                cards_count[j] += 1
+                for k in range(j, 15):
+                    cards_count[k] += 1
+                    for q in range(k, 15):
+                        cards_count[q] += 1
+                        for l in range(q, 15):
+                            flag = 0
+                            cards_count[l] += 1
+                            for p in range(14):
+                                if cards_count[p] == 5:
+                                    flag = 1
+                                    break;
+                            if flag == 0:
+                                card_abstraction = (i, j, k, q, l)
+                                self.identical_card_abstraction.append(card_abstraction)
+                                self.unique_card_abstractions[card_abstraction] = 0
+                                # print(card_abstraction)
+                            # else:
+                                # print(cards_count)
+                            cards_count[l] -= 1
+                        cards_count[q] -= 1
+                    cards_count[k] -= 1
+                cards_count[j] -= 1
+            cards_count[i] -= 1
+        # print("\n\n\n\nuNQUE CARD ABSTRACTIONS = ",self.unique_card_abstractions)
+        # print(len(self.identical_card_abstraction))
 
-# player1 = Player("Human")
-# player2 = Player("Human")
-# player1.cards.append(deck.deal())
-# player1.cards.append(deck.deal())
-# player2.cards.append(deck.deal())
-# player2.cards.append(deck.deal())
 
-# game2 = Game("testCards2", "3players");
-# game1.cardDetails();
-# game2.cardDetails();
+c_player1 = Player("AIAgent")
+c_player2 = Player("Human")
 
-deck = StandardDeck()
-deck.shuffle_cards()
-print(deck.cards)
+game = Game([c_player1, c_player2])
+# game.perform_regret_iterations(100000)
+# no_of_games = random.randint(500, 10000)
+# is_p1_win = game.play_texas_holdem(no_of_games)
+no_of_wins = 0
+no_of_itrs = 1
+for j in range(no_of_itrs):
+    no_of_games = random.randint(10, 500)
+    # no_of_games = 1
+    is_p1_cash_higher = game.play_texas_holdem(no_of_games)
+    # print("is_p1_cash_higher = ",is_p1_cash_higher)
+    if is_p1_cash_higher:
+        no_of_wins += 1
 
-player1 = Player("Human")
-player2 = Player("Human")
-player1.cards.append(deck.deal())
-player1.cards.append(deck.deal())
-player2.cards.append(deck.deal())
-player2.cards.append(deck.deal())
-
-print(player1.cards)
-print(player2.cards)
-
-game = Game([player1,player2])
-
-print(game.list_of_players[0].cards)
-game.showdown(player1,player2)
+# print("No of times AI Player cash is higher than Human player at the end = ",no_of_wins,"out of ",no_of_itrs)
+# print("Accuracy of the AI Player = ",no_of_wins*100/no_of_itrs)
