@@ -53,6 +53,7 @@ class Game:
         self.card_abstractions_from_file = file_operations.get_regret_values_from_pickle_file()
         self.no_of_games = 0
         for i in range(no_of_games):
+            print("Game ",i)
             self.no_of_games = i
             self.deck = None
             self.community_cards = []
@@ -189,7 +190,7 @@ class Game:
                 bet_raised = player1_bet
                 player1.increase_bet(player1_bet)
 
-            player2_bet_option = random.randint(1, 3)
+            player2_bet_option = random.randint(1, 2)
             # 1 = Call, 2= Raise, 3=   Fold
             # player2_bet_option = int(input("Enter Your Bet Option! 1.Bet 2.Fold 3.Check 4.Call 5.Raise\n"))
             if player2_bet_option == 1:
@@ -506,19 +507,22 @@ class Game:
         # print(len(self.identical_card_abstraction))
 
 
-c_player1 = Player("Agent")
+c_player1 = Player("AIAgent")
 c_player2 = Player("Human")
 
 game = Game([c_player1, c_player2])
-# game.perform_regret_iterations(1000000)
-no_of_games = random.randint(500, 10000)
-is_p1_win = game.play_texas_holdem(no_of_games)
+# game.perform_regret_iterations(100000)
+# no_of_games = random.randint(500, 10000)
+# is_p1_win = game.play_texas_holdem(no_of_games)
 no_of_wins = 0
-for j in range(100):
-    no_of_games = random.randint(100, 500)
+no_of_itrs = 1
+for j in range(no_of_itrs):
+    no_of_games = random.randint(10, 500)
+    # no_of_games = 1
     is_p1_cash_higher = game.play_texas_holdem(no_of_games)
-    print("is_p1_cash_higher = ",is_p1_cash_higher)
+    # print("is_p1_cash_higher = ",is_p1_cash_higher)
     if is_p1_cash_higher:
         no_of_wins += 1
 
-print("No of times p1 cash is higher = ",no_of_wins)
+# print("No of times AI Player cash is higher than Human player at the end = ",no_of_wins,"out of ",no_of_itrs)
+# print("Accuracy of the AI Player = ",no_of_wins*100/no_of_itrs)
